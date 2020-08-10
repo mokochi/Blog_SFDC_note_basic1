@@ -1,0 +1,121 @@
+1. SObject 사용법
+SObject sobj = new Book__c(Name = '원피스 1권');       ( O )
+SObject sobj = '문자열';      ( X )
+List<SObject> sobjList = { new Book__c(Name = '원피스 1권'), new Member__c(Name = '홍길동') };  ( O )
+
+
+2. SObject 형변환
+// 서로 다른 개체끼리의 형변환은 불가능
+Member__c member = new Book__c(Name = '원피스 1권');   ( ERROR )
+Member__c member = (Member__c)book;   ( ERROR )
+
+// SObejct의 형변환은 가능
+SObject sobj = new Member__c(Name = '홍길동');   ( O )
+Member__c member = (Member__c)sobj;   ( O )
+String memName = ((Member__c)sobj).Name;   ( O )
+
+// SObject의 필드 접근
+SObject sobj = new Member__c(Name = '홍길동');
+
+ID memId = sobj.Id;   ( O )
+String memName = sobj.Name;   ( ERROR )
+String memName = ((Member__c)sobj).Name;   ( O )
+
+
+3. SOQL & SOSL 사용법
+3-1) SOQL
+// Apex 코드내에서의 SOQL Qeury 실행
+// 대체적으로 List<>형식으로 습득
+List<Member__c> memberList = [SELECT Id, Name FROM Member__c WHERE Name = '홍길동'];
+
+// 특정키를 통해 단일 개체로도 습득 가능
+Member__c member1 = [SELECT Id, Name FROM Member__c WHERE Id = '[대상의 개체Id]'];
+
+// WHERE구 등에서 변수를 사용하는 방법
+// 변수의 앞에 "콜론(:)"을 붙여서 변수임을 알림
+ID memberId = memberList.get(0).Id;
+Member__c member2 = [SELECT Id, Name FROM Member__c WHERE Id = :memberId];
+
+3-2) SOSL
+// SOSL 검색
+List<List<SObject>> soqlResultList = [FIND '꼬비' IN ALL FIELDS RETURNING Book__c(Id, Name), Member__c(Id, Name)];
+
+// SOSL 검색 결과로 부터 각 개체 정보 습득
+List<Book__c> bookList = soqlResultList.get(0);
+List<Member__c> memberList = soqlResultList.get(1);
+
+// 각 검색 결과 확인
+System.debug('도서명 : ' + bookList.get(0).Name);
+System.debug('회원명 : ' + memberList.get(0).Name);
+
+
+4. Salesforce의 DML Statement
+// 단일 레코드 INSERT
+Member__c insMember = new Member__c(Name = '홍길동');
+insert insMember;
+
+// 다수 레코드 INSERT
+List<Member__c> insMemberList = new List<Member__c>();
+insMemberList.add(new Member__c(Name = '홍길동1'));
+insMemberList.add(new Member__c(Name = '홍길동2'));
+insMemberList.add(new Member__c(Name = '홍길동3'));
+insert insMemberList;
+
+// 단일 레코드 UPDATE
+Member__c updMember = new Member__c(Id = insMember.Id, Name='고길동');
+update updMember;
+
+// 다수 레코드 UPDATE
+List<Member__c> updMemberList = new List<Member__c>();
+updMemberList.add(new Member__c(Id = insMemberList.get(0).Id, Name = '고길동1'));
+updMemberList.add(new Member__c(Id = insMemberList.get(1).Id, Name = '고길동2'));
+updMemberList.add(new Member__c(Id = insMemberList.get(2).Id, Name = '고길동3'));
+update updMemberList;
+
+// 단일 레코드 DELETE
+delete insMember;
+
+// 다수 레코드 DELETE
+delete insMemberList;
+
+// 단일 레코드 UPSERT
+Member__c upsMemberIns = new Member__c(Name = '고길동');
+Member__c upsMemberUpd = new Member__c(Id = insMember.Id, Name='고길동');
+upsert upsMemberIns;   // UPSERT에 의한 INSERT
+upsert upsMemberUpd;   // UPDATE에 의한 UPDATE
+
+// 다수 레코드 UPSERT
+List<Member__c> upsMemberList = new List<Member__c>();
+upsMemberList.add(new Member__c(Name = '고길동'));
+upsMemberList.add(new Member__c(Id = insMember.Id, Name = '고길동'));
+upsert upsMemberList;  // 첫번째 요소는 INSERT, 두번째 요소는 UPDATE
+
+
+5. Database 메서드 사용법
+List<Member__c> insMemList = new List<Member__c>();
+insMemList.add(new Member__c(Name = '홍길동'));
+insMemList.add(new Member__c(Name = '고길동'));
+
+// 회원 리스트 INSERT
+Database.SaveResult[] srList = Database.insert(insMemList, false);
+
+// DML처리 결과 확인
+for (Database.SaveResult sr : srList) {
+
+    // INSERT 성공여부 체크(isSuccess())
+    if (sr.isSuccess()) { 
+        // INSERT 성공
+
+        System.debug('INSERT 성공 회원의 개체ID : ' + sr.getId());
+
+    } else {
+        // INSERT 실패
+
+        for (Database.Error err : sr.getErrors()) {
+
+            // ERROR메시지 표시
+            System.debug(err.getStatusCode() + ' : ' + err.getMessage());
+            System.debug('실패 레코드 정보 : ' + err.getFields());
+        }
+    }    
+}
